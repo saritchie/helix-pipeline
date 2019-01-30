@@ -9,7 +9,7 @@
  * OF ANY KIND, either express or implied. See the License for the specific language
  * governing permissions and limitations under the License.
  */
-const winston = require('winston');
+//const winston = require('winston');
 const Pipeline = require('../pipeline.js');
 
 /**
@@ -35,19 +35,10 @@ function pipe(next, payload, action) {
  */
 const pre = cont => cont;
 
-const log = winston.createLogger({
-  level: 'debug',
-  format: winston.format.simple(),
-  transports: [
-    new winston.transports.Console(),
-    new winston.transports.File({ filename: 'logs/pipeline.log' }),
-  ],
-});
 
 const defaults = {
   pipe,
   pre,
-  log,
 };
 
 module.exports = defaults;

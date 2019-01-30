@@ -24,26 +24,24 @@ function ajv(logger, options = {}) {
     // compromise: in order to avoid async code here
     // (which would complicate pipeline implementation considerably)
     // we're using static file names and synchronous reads/requires (#134)
-    const schemaFiles = [
-      `${schemadir}/action.schema.json`,
-      `${schemadir}/content.schema.json`,
-      `${schemadir}/context.schema.json`,
-      `${schemadir}/mdast.schema.json`,
-      `${schemadir}/meta.schema.json`,
-      `${schemadir}/position.schema.json`,
-      `${schemadir}/rawrequest.schema.json`,
-      `${schemadir}/request.schema.json`,
-      `${schemadir}/response.schema.json`,
-      `${schemadir}/secrets.schema.json`,
-      `${schemadir}/section.schema.json`,
-      `${schemadir}/textcoordinates.schema.json`,
+    const schemas = [
+require("../schemas/action.schema.json"),
+require("../schemas/content.schema.json"),
+require("../schemas/context.schema.json"),
+require("../schemas/mdast.schema.json"),
+require("../schemas/meta.schema.json"),
+require("../schemas/position.schema.json"),
+require("../schemas/rawrequest.schema.json"),
+require("../schemas/request.schema.json"),
+require("../schemas/response.schema.json"),
+require("../schemas/secrets.schema.json"),
+require("../schemas/section.schema.json"),
+require("../schemas/textcoordinates.schema.json"),
     ];
-    schemaFiles.forEach((schemaFile) => {
+    schemas.forEach((schemaData) => {
       /* eslint-disable global-require */
       /* eslint-disable import/no-dynamic-require */
-      const schemaData = require(schemaFile);
       validator.addSchema(schemaData);
-      logger.debug(`- ${schemaData.$id}  (${path.basename(schemaFile)})`);
     });
     logger.debug('ajv initialized');
     _ajv[hash(options)] = validator;

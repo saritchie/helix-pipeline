@@ -17,11 +17,23 @@ const mdast2hast = require('mdast-util-to-hast');
 const hast2html = require('hast-util-to-html');
 const unified = require('unified');
 const parse = require('rehype-parse');
-const { JSDOM } = require('jsdom');
 const image = require('./image-handler');
 const embed = require('./embed-handler');
 const link = require('./link-handler');
 const types = require('../schemas/mdast.schema.json').properties.type.enum;
+
+const parseHTML = (html) => {
+  if (typeof document === "undefined") {
+    //const { JSDOM } = require("jsdom");
+    //return new JSDOM(html).window.document;
+  } else {
+    const frame = document.createElement("iframe");
+    frame.style.display = "none";
+    document.body.appendChild(frame);
+    i.contentWindow.document.documentElement.innerHTML = html;
+		return frame.contentDocument;
+  }
+};
 
 /**
  * @typedef {function(parent, tagname, attributes, children)} handlerFunction
@@ -194,7 +206,7 @@ class VDOMTransformer {
   getDocument() {
     // mdast -> hast; hast -> html -> DOM using JSDOM
     const hast = mdast2hast(this._root, { handlers: this._handlers });
-    return new JSDOM(hast2html(hast)).window.document;
+    return parseHTML(hast2html(hast));
   }
 }
 
