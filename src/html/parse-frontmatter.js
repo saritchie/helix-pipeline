@@ -1,5 +1,13 @@
 const yaml = require('js-yaml');
 
+class FrontmatterParsingError extends Error {};
+class AmbigousFrontmatter extends FrontmatterParsingError {};
+class MissingSpaceBefore extends AmbigousFrontmatter {};
+class MissingSpaceAfter extends AmbigousFrontmatter {};
+class EmptyLineInFrontmatter extends AmbigousFrontmatter {};
+class ForbiddenYamlPayload extends AmbigousFrontmatter {};
+class CorruptedYamlPayload extends FrontmatterParsingError {};
+
 /**
  * Given an mdast tree and it's text representation, this finds all
  * the frontmatter in it.
@@ -28,7 +36,9 @@ const yaml = require('js-yaml');
  *
  * Note that most of the information required to asses these properties
  * is not contained in the mdast itself, which is why this algorithm requires
- * access to the original markdown string.
+ * access to the original markdown string. (The mdast is an Abstract Syntax Tree,
+ * the proper tool for a task like this would be a Concrete Syntax Tree, but we have
+ * no such thing...).
  *
  * Note that converting the mdast to a markdown string will not do, since
  * the generated markdown will be much different.
@@ -78,14 +88,23 @@ const yaml = require('js-yaml');
  *   {
  *     type: 'frontmatter',
  *     payload: {...},
+ *     mdast: MdastNode[],
  *     start: Number,
  *     end: Number
  *   }
  *   ```
  *
- *   `start` and `end` represent the index of the mdast `thematicBreak`
+ *   `start` and `end` represent the index of the mdast node
  *   node that starts/ends the frontmatter block.
- *   This can be used to quickly replace those sections in the input mdast.
+ *   The `payload` property can be used to access the actual
+ *   yaml payload, while the `mdast` property can be used to
+ *   insert the frontmatter blocks into the actual mdast.
+ *   Just replace the nodes indicated by start/end with the
+ *   nodes in mdast.
+ *
+ *   Note that the `mdast` block does not necessarily contain
+ *   only mdast blocks; settext headers for instance require
+ *   us in some cases to 
  *
  *   Warnings use the following format:
  *
@@ -93,27 +112,45 @@ const yaml = require('js-yaml');
  *   {
  *     type: 'warning',
  *     warning: String,
+ *     code: ErrorType, 
  *     source: String, // Source code of the frontmatter block
  *     start: Number, // Node index as in 'frontmatter' type
  *     end: Number,
  *     cause: Error, // The error that caused the problem if any
  *   }
  *   ```
+ *
+ *   code is one of:
+ *
+ *   MissingSpaceBefore
+ *   MissingSpaceAfter
+ *   EmptyLineInFrontmatter
+ *   ForbiddenYamlPayload
+ *   CorruptedYamlPayload
+ *
+ *   The code is a subclass of error, so if the caller wishes to throw
+ *   an error, that error may be thrown
  */
 const find_frontmatter = (mdast, src) => {
+  const hspace = /[^\S\n\r]/; // Horizontal space
   // Access the md source of a markdown ast element
   const start = (idx) => mdast.childen[idx].position.start.offset;
   const end = (idx) => mdast.childen[idx].position.start.offset;
   const nodeStr = (idx) => src.slice(start(idx), end(idx));
   // Check if the previous/next ast element ends/starts with an empty line
-  const afterEmpty = (idx) => idx === 0 || nodeStr(idx-1).match(/\n\s*\n$/);
-  const beforeEmpty = (idx) => idx+1 === size(mdast) || nodeStr(idx+1).match(/^\n\s*\n/);
+  // End/Start of document also counts as empty line...
+  const afterEmpty = (idx) => str.slice(0, start(idx)).match(new RegExp(`(^|\n)${hspace.source}*(^|\n)$`))
+  const beforeEmpty = (idx) => str.slice(end(idx+1)).match(new RegExp(`^($|\n)${hspace.source}*($|\n)`))
 
   // Preprocessing
   const blocks = pipe(
     enumerate(mdast.children)
     // Find any potential frontmatter starts/ends;
-    filter(([idx, nod]) => nod.type === 'thematicBreak' && nodeStr(idx) === '---'),
+    filter(([idx, nod]) => true
+      && ( false
+        || nod.type === 'thematicBreak'
+        || (nod.type === 'heading' && nod.depth === 2))
+      && nodeStr(idx).match(new RegExp(`(^|\n)---${hspace.source}$`)),
     // Annotate the fences with whether they have an empty line
     // before/after
     map(([idx, nod]) => {
@@ -137,8 +174,8 @@ const find_frontmatter = (mdast, src) => {
 
   // Source code extraction, yaml parsing, checking constraints
   return map(blocks, ([fst, last]) => {
-    const txt = src.slice(end(fst)+1, start(last)-1);
-    if (txt.match(/\n\s*\n/)) {
+    const all_txt = src.slice(start(fst), end(last));
+    if (all_txt.match(new RegExp('\n${hspace.source}*\n'))) {
       return warn(fst, last, txt, null,
           'Found ambigous frontmatter block: Block contains empty line! ' +
           'Make sure your frontmatter blocks contain no empty lines ' +
@@ -202,5 +239,15 @@ const parse_frontmatter = ({ content: { mdast } }) => {
   return { content: { mdast } };
 };
 
-parse_frontmatter.find_frontmatter = find_frontmatter;
+Object.assign(parse_frontmatter, {
+  find_frontmatter,
+  FrontmatterParsingError,
+  AmbigousFrontmatter,
+  MissingSpaceBefore,
+  MissingSpaceAfter,
+  EmptyLineInFrontmatter,
+  ForbiddenYamlPayload,
+  CorruptedYamlPayload,
+});
+
 module.exports = parse_frontmatter;
