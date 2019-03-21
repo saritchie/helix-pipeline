@@ -146,7 +146,7 @@ const find_frontmatter = (mdast, src) => {
     };
   });
 
-  const procwarnigns =map(blocks, ([fst, last]) => {
+  const procwarnigns = map(blocks, ([fst, last]) => {
     const src = src.slice(fst.off_start, fst.off_end);
 
     if (toignore(fst) && toignore(last)) {
@@ -189,16 +189,16 @@ const find_frontmatter = (mdast, src) => {
       start: fst.idx,
       end: last.idx,
     };
-  };
+  });
 
   // Preprocessing
   const blocks = pipe(
-    enumerate(mdast.children)
+    enumerate(mdast.children),
     // Find any potential frontmatter starts/ends;
     filter(([idx, nod]) => true
       && ( false
         || nod.type === 'thematicBreak'
-        || (nod.type === 'heading' && nod.depth === 2))
+        || (nod.type === 'heading' && nod.depth === 2))),
     // Source code extraction, yaml parsing, checking constraints
     analyzenode,
     // Filter out those nodes that did not match the basic regexp above
