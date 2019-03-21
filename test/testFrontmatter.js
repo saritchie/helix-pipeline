@@ -15,7 +15,9 @@ const assert = require('assert');
 const { cloneDeep } = require('lodash');
 const yaml = require('js-yaml');
 const { multiline } = require('@adobe/helix-shared').string;
-const { flattenTree, concat, each, list } = require('@adobe/helix-shared').sequence;
+const {
+  flattenTree, concat, each,
+} = require('@adobe/helix-shared').sequence;
 const parseMd = require('../src/html/parse-markdown');
 const parseFront = require('../src/html/parse-frontmatter');
 
@@ -40,9 +42,11 @@ const ck = (wat, md, ast) => {
   it(wat, () => {
     const { proc } = procMd(md);
     // Discard position info
-    const nodes = flattenTree(proc, (node, recurse) => concat([node], recurse(node.children || [])));
+    const nodes = flattenTree(proc,
+      (node, recurse) => concat([node], recurse(node.children || [])));
     each(nodes, (node) => {
-      delete node['position'];
+      /* eslint-disable-next-line no-param-reassign */
+      delete node.position;
     });
     assert.deepStrictEqual(proc.children, yaml.safeLoad(ast));
   });

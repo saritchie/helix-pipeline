@@ -1,5 +1,5 @@
 /*
-[object Object]
+ * Copyright 2018 Adobe. All rights reserved.
  * This file is licensed to you under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License. You may obtain a copy
  * of the License at http://www.apache.org/licenses/LICENSE-2.0
@@ -162,10 +162,11 @@ const findFrontmatter = (mdast, str) => {
       type: 'warning',
       warning: prosa,
       source: src,
-      fst, last,
+      fst,
+      last,
       start: fst.idx,
       end: last && last.idx,
-      cause
+      cause,
     });
 
     if (toignore(fst) && toignore(last)) {
@@ -242,6 +243,7 @@ const findFrontmatter = (mdast, str) => {
       && next
       && next.type === 'frontmatter'
       && val.end === next.start)),
+    /* eslint-disable-next-line no-unused-vars */
     map(([val, next]) => val),
   );
 };
@@ -261,7 +263,7 @@ const parseFrontmatter = ({ content: { mdast, body } }) => {
         type: 'yaml',
         payload: block.payload,
       });
-      off += -cnt +1; // cnt removed, 1 inserted
+      off += -cnt + 1; // cnt removed, 1 inserted
     } else {
       const { warning, source, start } = block;
       const fst = mdast.children[start + off];
