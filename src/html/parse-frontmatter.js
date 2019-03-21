@@ -12,7 +12,7 @@
 const yaml = require('js-yaml');
 const {
   join, map, zipLeast2, pipe, list, trySlidingWindow, filter, enumerate,
-  identity, range, size,
+  identity, range, size, type,
 } = require('@adobe/helix-shared').sequence;
 
 const { assign } = Object;
@@ -130,7 +130,7 @@ const findFrontmatter = (mdast, str) => {
   const re = x => new RegExp(x);
   // Access the md source of a markdown ast element
   const start = idx => mdast.children[idx].position.start.offset;
-  const end = idx => mdast.children[idx].position.start.offset;
+  const end = idx => mdast.children[idx].position.end.offset;
   const nodeStr = idx => str.slice(start(idx), end(idx));
 
   const warn = (fst, last, txt, cause, prosa) => ({
@@ -145,14 +145,22 @@ const findFrontmatter = (mdast, str) => {
   const ishr = elm => elm.after && elm.before;
   const toignore = elm => ishead(elm) || ishr(elm);
 
+  const dbg = wat => seq => {
+    const r = list(seq);
+    console.error(`${wat}=`, require('util').inspect(r, {depth: 10, colors: true}));
+    return r;
+  };
+
   const analyzenode = map(([idx, nod]) => {
     const mat = nodeStr(idx).match(re(`(?<=^|\\n)---${hspace}*\\n?$`));
+    console.log(`ANALYZE NODE '${nodeStr(idx)}' ${idx}`, nod);
     if (!mat) {
       return null;
     }
 
     // Offset of the actual separator line
-    const offStart = mat.index + idx;
+    const offStart = mat.index + start(idx);
+    console.log("mat", mat)
     const offEnd = offStart + size(mat[0]);
     // Is there a new line or EOF before/after the separator?
     const before = Boolean(str.slice(0, offStart).match(re(`(^|(^|\\n)${hspace}*\\n)$`)));
@@ -164,39 +172,39 @@ const findFrontmatter = (mdast, str) => {
   });
 
   const procwarnigns = map(([fst, last]) => {
-    const src = str.slice(fst.offStart, fst.offEnd);
+    const src = str.slice(fst.offStart, last.offEnd);
 
     if (toignore(fst) && toignore(last)) {
       return null;
     } else if (!fst.before) {
-      return warn(fst, last, src, null,
+      return warn(fst.idx, last.idx, src, null,
         'Found ambigous frontmatter block: No empty line before the block! '
           + 'Make sure your frontmatter blocks contain no empty lines '
           + 'and your horizontal rules have an empty line before AND after them.');
     } else if (!last.after) {
-      return warn(fst, last, src, null,
+      return warn(fst.idx, last.idx, src, null,
         'Found ambigous frontmatter block: No empty line after the block! '
           + 'Make sure your frontmatter blocks contain no empty lines '
           + 'and your horizontal rules have an empty line before AND after them.');
     } else if (src.match(re(`\n${hspace.source}*\n`))) {
-      return warn(fst, last, src, null,
+      return warn(fst.idx, last.idx, src, null,
         'Found ambigous frontmatter block: Block contains empty line! '
           + 'Make sure your frontmatter blocks contain no empty lines '
           + 'and your horizontal rules have an empty line before AND after them.');
     }
 
-    const txt = src.slice(fst.offEnd, last.offEnd);
+    const txt = src.slice(fst.offEnd, last.offStart);
     let data;
     try {
       data = yaml.safeLoad(txt);
     } catch (e) {
-      return warn(fst, last, src, e, `Exception ocurred while parsing yaml: ${e}`);
+      return warn(fst.idx, last.idx, src, e, `Exception ocurred while parsing yaml: ${e}`);
     }
 
-    if (data.constructor !== Object) {
-      return warn(fst, last, src, null,
+    if (type(data) !== Object) {
+      return warn(fst.idx, last.idx, src, null,
         'Found ambigous frontmatter block: Block contains valid yaml, but '
-          + `it's data type is ${data.constructor} instead of Object.`
+          + `it's data type is ${type(data)} instead of Object.`
           + 'Make sure your yaml blocks contain only key-value pairs at the root level!');
     }
 
@@ -227,6 +235,7 @@ const findFrontmatter = (mdast, str) => {
     procwarnigns,
     // Filter out those nodes that where ignored by the last step
     filter(identity),
+    dbg("proc"),
   );
 };
 
@@ -247,8 +256,8 @@ const parseFrontmatter = ({ content: { mdast, body } }) => {
       });
       off -= cnt;
     } else {
-      const { warning, source } = block;
-      const fst = mdast.children[block.start];
+      const { warning, source, start } = block;
+      const fst = mdast.children[start];
       // This also needs to account for settext headings
       const { line } = fst.position.end;
 
@@ -260,7 +269,7 @@ const parseFrontmatter = ({ content: { mdast, body } }) => {
         join(''),
       );
 
-      throw new Error(`${warning}\n${sourceref}`);
+      throw new FrontmatterParsingError(`${warning}\n${sourceref}`);
     }
   }
 

@@ -57,69 +57,69 @@ const ckErr = (wat, body) => {
 
 describe('parseFrontmatter', () => {
   // NOPs
-  ckNop('Empty document', '');
-  ckNop('Just some text', 'Foo');
-  ckNop('Hash based second level header', '## Foo');
-  ckNop('Underline second level header', `
-    Hello World
-    ---
-  `);
-  ckNop('Single <hr>', `
-    ---
-  `);
-  ckNop('h2 with underline followed by <hr>', `
-    Hello
-    ---
-
-    ---
-  `);
-
-  ckNop('diversity of h2 with underline and <hr>', `
-    Hello
-    ---
-
-    Bar
-    ---
-
-    ---
-
-    Bang
-  `);
-
-  ckNop('resolving ambiguity by using h2 underlined with 4 dashes', `
-    Foo
-    ----
-    Hello
-    ----
-  `);
-
-  ckNop('resolving ambiguity by using hr with spaces between dashes', `
-    Foo
-    - - -
-    Hello
-  `);
-
-  ckNop('resolving ambiguity by using hr with spaces between dashes', `
-    Foo
-
-    - - -
-    Hello: 13
-    - - -
-
-    Bar
-  `);
-
-  ckNop('resolving ambiguity by using hr with asterisk', `
-    Foo
-    ***
-    Hello
-  `);
-
-  ckNop('resolving ambiguity by using hr with asterisk #2', `
-    ***
-    Foo: 42
-    ***
-  `);
+  // ckNop('Empty document', '');
+  // ckNop('Just some text', 'Foo');
+  // ckNop('Hash based second level header', '## Foo');
+  // ckNop('Underline second level header', `
+  //   Hello World
+  //   ---
+  // `);
+  // ckNop('Single <hr>', `
+  //   ---
+  // `);
+  // ckNop('h2 with underline followed by <hr>', `
+  //   Hello
+  //   ---
+  //
+  //   ---
+  // `);
+  //
+  // ckNop('diversity of h2 with underline and <hr>', `
+  //   Hello
+  //   ---
+  //
+  //   Bar
+  //   ---
+  //
+  //   ---
+  //
+  //   Bang
+  // `);
+  //
+  // ckNop('resolving ambiguity by using h2 underlined with 4 dashes', `
+  //   Foo
+  //   ----
+  //   Hello
+  //   ----
+  // `);
+  //
+  // ckNop('resolving ambiguity by using hr with spaces between dashes', `
+  //   Foo
+  //   - - -
+  //   Hello
+  // `);
+  //
+  // ckNop('resolving ambiguity by using hr with spaces between dashes', `
+  //   Foo
+  //
+  //   - - -
+  //   Hello: 13
+  //   - - -
+  //
+  //   Bar
+  // `);
+  //
+  // ckNop('resolving ambiguity by using hr with asterisk', `
+  //   Foo
+  //   ***
+  //   Hello
+  // `);
+  //
+  // ckNop('resolving ambiguity by using hr with asterisk #2', `
+  //   ***
+  //   Foo: 42
+  //   ***
+  // `);
 
   // actual warnings
   ckErr('reject yaml with list', `
