@@ -1,6 +1,6 @@
 const {cloneDeep} = require('lodash');
 const yaml = require('js-yaml');
-const parseMarkdown = require('../src/html/parse-markdown
+const parseMarkdown = require('../src/html/parse-markdown');
 const parseFront = require('../src/html/parse-frontmatter');
 const {FrontmatterParsingError} = parseFront;
 
