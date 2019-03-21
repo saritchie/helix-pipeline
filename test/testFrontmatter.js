@@ -31,25 +31,31 @@ const logger = winston.createLogger({
 const procMd = (md) => {
   const body = multiline(md);
   const { mdast: orig } = parseMd({ content: { body } }, { logger }).content;
-  const { mdast: proc } = parseFront({ content: { mdast: cloneDeep(orig) } }).content;
+  const { mdast: proc } = parseFront({ content: { mdast: cloneDeep(orig), body } }).content;
   return { orig, proc };
 };
 
-const ck = (md, ast) => {
-  const { proc } = procMd(md);
-  assert.deepStrictEqual(proc.children, yaml.safeLoad(ast));
+const ck = (wat, md, ast) => {
+  it(wat, () => {
+    const { proc } = procMd(md);
+    assert.deepStrictEqual(proc.children, yaml.safeLoad(ast));
+  });
 };
 
-const ckNop = (md) => {
-  const { proc, orig } = procMd(md);
-  assert.deepStrictEqual(proc, orig);
+const ckNop = (wat, md) => {
+  it(`${wat} should be ignored`, () => {
+    const { proc, orig } = procMd(md);
+    assert.deepStrictEqual(proc, orig);
+  });
 };
 
-const ckErr = (body) => {
-  assert.throws(() => procMd(body), FrontmatterParsingError);
+const ckErr = (wat, body) => {
+  it(`${wat} should raise exception`, () => {
+    assert.throws(() => procMd(body), FrontmatterParsingError);
+  });
 };
 
-it('parseFrontmatter', () => {
+describe('parseFrontmatter', () => {
   // NOPs
   ckNop('Empty document', '');
   ckNop('Just some text', 'Foo');
@@ -213,7 +219,7 @@ it('parseFrontmatter', () => {
   `, `
   `);
 
-  ck('Frontmatter; underline h2; frontmatter'`
+  ck('Frontmatter; underline h2; frontmatter', `
     ---
     foo: 42
     ---
@@ -227,7 +233,7 @@ it('parseFrontmatter', () => {
   `, `
   `);
 
-  ck('Frontmatter; underline h2; frontmatter; w trailing space'`
+  ck('Frontmatter; underline h2; frontmatter; w trailing space', `
     ---   
     foo: 42
     ---    
@@ -251,7 +257,7 @@ it('parseFrontmatter', () => {
     ---
   `, `
   `);
-  ck('frontmatter, <hr>, frontmatter'`
+  ck('frontmatter, <hr>, frontmatter', `
     ---
     {x: 23}
     ---
@@ -275,7 +281,7 @@ it('parseFrontmatter', () => {
     ---
   `, `
   `);
-  ck('frontmatter, <hr>, frontmatter, <hr>'`
+  ck('frontmatter, <hr>, frontmatter, <hr>', `
     ---        
     {x: 23}
     ---

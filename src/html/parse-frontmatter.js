@@ -129,8 +129,8 @@ const findFrontmatter = (mdast, str) => {
   const hspace = '[^\\S\\n\\r]'; // Horizontal space
   const re = x => new RegExp(x);
   // Access the md source of a markdown ast element
-  const start = idx => mdast.childen[idx].position.start.offset;
-  const end = idx => mdast.childen[idx].position.start.offset;
+  const start = idx => mdast.children[idx].position.start.offset;
+  const end = idx => mdast.children[idx].position.start.offset;
   const nodeStr = idx => str.slice(start(idx), end(idx));
 
   const warn = (fst, last, txt, cause, prosa) => ({
@@ -232,11 +232,11 @@ const findFrontmatter = (mdast, str) => {
 
 class FrontmatterParsingError extends Error {}
 
-const parseFrontmatter = ({ content: { mdast } }) => {
+const parseFrontmatter = ({ content: { mdast, body } }) => {
   // We splice the mdast.
   let off = 0;
 
-  for (const block of list(findFrontmatter(mdast))) {
+  for (const block of list(findFrontmatter(mdast, body))) {
     if (block.type === 'frontmatter') {
       // Replace all the ast nodes making up a frontmatter block
       // with the respective frontmatter block
