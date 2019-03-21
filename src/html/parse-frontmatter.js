@@ -12,7 +12,7 @@
 const yaml = require('js-yaml');
 const {
   join, map, zipLeast2, pipe, list, trySlidingWindow, filter, enumerate,
-  identity, range, size, type,
+  identity, range, size, type, append,
 } = require('@adobe/helix-shared').sequence;
 
 const { assign } = Object;
@@ -120,7 +120,7 @@ const { assign } = Object;
  *     warning: String,
  *     source: String, // Source code of the frontmatter block
  *     start: Number, // Node index as in 'frontmatter' type
- *     end: Number,
+ *     end: Number, // May be null if the fence is the last in the markdown
  *     cause: Error, // The error that caused the problem if any
  *   }
  *   ```
@@ -133,38 +133,22 @@ const findFrontmatter = (mdast, str) => {
   const end = idx => mdast.children[idx].position.end.offset;
   const nodeStr = idx => str.slice(start(idx), end(idx));
 
-  const warn = (fst, last, txt, cause, prosa) => ({
-    type: 'warning',
-    warning: prosa,
-    source: txt,
-    start: fst,
-    end: last,
-  });
-
   const ishead = elm => elm.after && elm.nod.type === 'heading';
   const ishr = elm => elm.after && elm.before;
-  const toignore = elm => ishead(elm) || ishr(elm);
-
-  const dbg = wat => seq => {
-    const r = list(seq);
-    console.error(`${wat}=`, require('util').inspect(r, {depth: 10, colors: true}));
-    return r;
-  };
+  const toignore = elm => !elm || (ishead(elm) || ishr(elm));
 
   const analyzenode = map(([idx, nod]) => {
     const mat = nodeStr(idx).match(re(`(?<=^|\\n)---${hspace}*\\n?$`));
-    console.log(`ANALYZE NODE '${nodeStr(idx)}' ${idx}`, nod);
     if (!mat) {
       return null;
     }
 
     // Offset of the actual separator line
     const offStart = mat.index + start(idx);
-    console.log("mat", mat)
     const offEnd = offStart + size(mat[0]);
     // Is there a new line or EOF before/after the separator?
     const before = Boolean(str.slice(0, offStart).match(re(`(^|(^|\\n)${hspace}*\\n)$`)));
-    const after = Boolean(str.slice(offEnd).match(re(`(${hspace}(\\n|$)|$)`)));
+    const after = Boolean(str.slice(offEnd).match(re(`^(${hspace}*(\\n${hspace}*(\\n|$))|$)`)));
 
     return {
       idx, nod, offStart, offEnd, before, after,
@@ -172,37 +156,46 @@ const findFrontmatter = (mdast, str) => {
   });
 
   const procwarnigns = map(([fst, last]) => {
-    const src = str.slice(fst.offStart, last.offEnd);
+    const src = str.slice(fst.offStart, last === null ? undefined : last.offEnd);
+
+    const warn = (cause, prosa) => ({
+      type: 'warning',
+      warning: prosa,
+      source: src,
+      fst, last,
+      start: fst.idx,
+      end: last && last.idx,
+      cause
+    });
 
     if (toignore(fst) && toignore(last)) {
       return null;
     } else if (!fst.before) {
-      return warn(fst.idx, last.idx, src, null,
-        'Found ambigous frontmatter block: No empty line before the block! '
+      return warn(null,
+        'Found ambigous frontmatter fence: No empty line before the block! '
           + 'Make sure your frontmatter blocks contain no empty lines '
           + 'and your horizontal rules have an empty line before AND after them.');
     } else if (!last.after) {
-      return warn(fst.idx, last.idx, src, null,
-        'Found ambigous frontmatter block: No empty line after the block! '
+      return warn(null,
+        'Found ambigous frontmatter fence: No empty line after the block! '
           + 'Make sure your frontmatter blocks contain no empty lines '
           + 'and your horizontal rules have an empty line before AND after them.');
-    } else if (src.match(re(`\n${hspace.source}*\n`))) {
-      return warn(fst.idx, last.idx, src, null,
-        'Found ambigous frontmatter block: Block contains empty line! '
+    } else if (src.match(re(`\\n${hspace}*\\n`))) {
+      return warn(null,
+        'Found ambigous frontmatter fence: Block contains empty line! '
           + 'Make sure your frontmatter blocks contain no empty lines '
           + 'and your horizontal rules have an empty line before AND after them.');
     }
 
-    const txt = src.slice(fst.offEnd, last.offStart);
+    const txt = str.slice(fst.offEnd, last.offStart);
     let data;
     try {
       data = yaml.safeLoad(txt);
     } catch (e) {
-      return warn(fst.idx, last.idx, src, e, `Exception ocurred while parsing yaml: ${e}`);
+      return warn(e, `Exception ocurred while parsing yaml: ${e}`);
     }
-
     if (type(data) !== Object) {
-      return warn(fst.idx, last.idx, src, null,
+      return warn(null,
         'Found ambigous frontmatter block: Block contains valid yaml, but '
           + `it's data type is ${type(data)} instead of Object.`
           + 'Make sure your yaml blocks contain only key-value pairs at the root level!');
@@ -228,6 +221,10 @@ const findFrontmatter = (mdast, str) => {
     analyzenode,
     // Filter out those nodes that did not match the basic regexp above
     filter(identity),
+    // We append this virtual fence in order to make sure procwarnings
+    // is even called if the markdown contains just a single `---`, because
+    append(null),
+    // we still need to warn about ambiguous fences
     // Group the fences into actual pairs of start/end fence
     trySlidingWindow(2),
     // Decide which blocks to ignore, which deserve warnings and which
@@ -235,7 +232,17 @@ const findFrontmatter = (mdast, str) => {
     procwarnigns,
     // Filter out those nodes that where ignored by the last step
     filter(identity),
-    dbg("proc"),
+    // Filter out false positive warnings for pseudo frontmatter blocks
+    // before actual frontmatter
+    append(null),
+    trySlidingWindow(2),
+    filter(([val, next]) => !(true
+      && val.type === 'warning'
+      && val.warning.startsWith('Found ambigous frontmatter')
+      && next
+      && next.type === 'frontmatter'
+      && val.end === next.start)),
+    map(([val, next]) => val),
   );
 };
 
@@ -249,15 +256,15 @@ const parseFrontmatter = ({ content: { mdast, body } }) => {
     if (block.type === 'frontmatter') {
       // Replace all the ast nodes making up a frontmatter block
       // with the respective frontmatter block
-      const cnt = block.end - block.start;
+      const cnt = block.end - block.start + 1;
       mdast.children.splice(block.start + off, cnt, {
         type: 'yaml',
         payload: block.payload,
       });
-      off -= cnt;
+      off += -cnt +1; // cnt removed, 1 inserted
     } else {
       const { warning, source, start } = block;
-      const fst = mdast.children[start];
+      const fst = mdast.children[start + off];
       // This also needs to account for settext headings
       const { line } = fst.position.end;
 
@@ -266,7 +273,7 @@ const parseFrontmatter = ({ content: { mdast, body } }) => {
         source.split('\n'),
         zipLeast2(range(line, Infinity)),
         map(([l, no]) => `    ${no} | ${l} `),
-        join(''),
+        join('\n'),
       );
 
       throw new FrontmatterParsingError(`${warning}\n${sourceref}`);
