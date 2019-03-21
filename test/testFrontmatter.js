@@ -1,8 +1,24 @@
-const {cloneDeep} = require('lodash');
+/*
+ * Copyright 2018 Adobe. All rights reserved.
+ * This file is licensed to you under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License. You may obtain a copy
+ * of the License at http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software distributed under
+ * the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR REPRESENTATIONS
+ * OF ANY KIND, either express or implied. See the License for the specific language
+ * governing permissions and limitations under the License.
+ */
+/* eslint-env mocha */
+const winston = require('winston');
+const assert = require('assert');
+const { cloneDeep } = require('lodash');
 const yaml = require('js-yaml');
-const parseMarkdown = require('../src/html/parse-markdown');
+const { multiline } = require('@adobe/helix-shared').string;
+const parseMd = require('../src/html/parse-markdown');
 const parseFront = require('../src/html/parse-frontmatter');
-const {FrontmatterParsingError} = parseFront;
+
+const { FrontmatterParsingError } = parseFront;
 
 const logger = winston.createLogger({
   silent: true,
@@ -14,19 +30,18 @@ const logger = winston.createLogger({
 
 const procMd = (md) => {
   const body = multiline(md);
-  const {mdast: orig} = parseMd({ content: {body} }, {logger}).content;
-  const {mdast: proc} = parseFront({content: {mdast: cloneDeep(orig)}}).content;
-  return {orig, proc};
-
+  const { mdast: orig } = parseMd({ content: { body } }, { logger }).content;
+  const { mdast: proc } = parseFront({ content: { mdast: cloneDeep(orig) } }).content;
+  return { orig, proc };
 };
 
 const ck = (md, ast) => {
-  const {proc} = procMd(md);
+  const { proc } = procMd(md);
   assert.deepStrictEqual(proc.children, yaml.safeLoad(ast));
 };
 
 const ckNop = (md) => {
-  const {proc, orig} = procMd(md);
+  const { proc, orig } = procMd(md);
   assert.deepStrictEqual(proc, orig);
 };
 
